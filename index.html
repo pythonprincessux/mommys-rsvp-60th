@@ -311,8 +311,8 @@ if(safeSessionGet('sharimaIntroSeen')==='1'){
 })();
 
 const HOTEL_URL='https://www.marriott.com/event-reservations/reservation-link.mi?id=1783722474105&key=GRP&app=resvlink&_p=c11629c79d1c65f1ea038ff4ec';
-const GOOGLE_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwr_wTQmdZo41ZIqioDe0KzAJxeectagh_wO3_9NGPqIM7t34S2LFf8S6eZf2yvLflE/exec'; // Paste a deployed Google Apps Script Web App URL here for cross-device RSVP tracking.
-const HOST_PASSCODE='sharima60';
+const SUPABASE_URL='https://itbqnvlzmjtmsrvkvbwi.supabase.co';
+const SUPABASE_KEY='sb_publishable_SMhz7t0U7bqsparIrdQnxA_fV7nA4UY';
 if(window.QRCode){new QRCode(document.getElementById('qrcode'),{text:HOTEL_URL,width:110,height:110,colorDark:'#240914',colorLight:'#ffffff'});}else{document.getElementById('qrcode').innerHTML='<a href="'+HOTEL_URL+'" target="_blank" rel="noopener" style="color:#240914;font:600 12px Inter,sans-serif;text-align:center">Tap to book hotel</a>';}
 function updateCountdown(){
   const ids=['days','hours','minutes','seconds'];
@@ -341,12 +341,208 @@ if('IntersectionObserver' in window){
   document.querySelectorAll('.reveal').forEach(el=>el.classList.add('visible'));
 }
 let attending=true;const attendBtn=document.getElementById('attendBtn'),declineBtn=document.getElementById('declineBtn');function setMode(v){attending=v;attendBtn.classList.toggle('active',v);declineBtn.classList.toggle('active',!v);document.querySelectorAll('.attendingOnly').forEach(x=>x.style.display=v?'block':'none')}attendBtn.onclick=()=>setMode(true);declineBtn.onclick=()=>setMode(false);
-function getLocal(){return JSON.parse(localStorage.getItem('sharima60_rsvps')||'[]')}function setLocal(a){localStorage.setItem('sharima60_rsvps',JSON.stringify(a))}
-async function saveEntry(entry){if(GOOGLE_SCRIPT_URL){const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(entry)});return r}const a=getLocal();a.push(entry);setLocal(a)}
-function refreshCounts(){const a=getLocal();document.getElementById('confirmed').textContent=a.filter(x=>x.attending).length;document.getElementById('declined').textContent=a.filter(x=>!x.attending).length;document.getElementById('guestTotal').textContent=a.filter(x=>x.attending).reduce((s,x)=>s+Number(x.guests||0),0);document.getElementById('hotelTotal').textContent=a.filter(x=>x.attending&&x.hotel==='Yes').length}refreshCounts();
-document.getElementById('rsvpForm').addEventListener('submit',async e=>{e.preventDefault();const value=id=>document.getElementById(id).value;const entry={name:value('name').trim(),email:value('email').trim(),phone:value('phone').trim(),attending,guests:attending?value('guests'):'0',meal:attending?value('meal'):'',hotel:attending?value('hotelNeeded'):'',song:attending?value('song').trim():'',notes:value('notes').trim(),submittedAt:new Date().toISOString()};const n=document.getElementById('notice');try{await saveEntry(entry);n.textContent=attending?`Thank you, ${entry.name}. We can’t wait to celebrate with you!`:`Thank you for responding, ${entry.name}. You will be missed.`;n.classList.add('show');e.target.reset();setMode(true);refreshCounts()}catch(err){n.textContent='Your response could not be saved. Please try again.';n.classList.add('show')}});
-document.getElementById('hostToggle').onclick=()=>document.getElementById('admin').classList.toggle('show');let rows=[];document.getElementById('unlock').onclick=()=>{if(document.getElementById('hostPass').value!==HOST_PASSCODE)return alert('Incorrect password.');rows=getLocal();document.getElementById('dashboard').style.display='block';const body=document.getElementById('adminRows');body.innerHTML=rows.length?'':'<tr><td colspan="9">No local responses yet.</td></tr>';rows.forEach(x=>{const tr=document.createElement('tr');[x.name,x.attending?'Attending':'Declined',x.guests,x.meal,x.hotel,x.email,x.phone,x.song,x.notes].forEach(v=>{const td=document.createElement('td');td.textContent=v||'';tr.appendChild(td)});body.appendChild(tr)})};
-document.getElementById('exportCsv').onclick=()=>{if(!rows.length)return alert('No responses to export.');const h=['Name','Status','Guests','Meal','Hotel','Email','Phone','Song','Notes','Submitted'];const csv=[h,...rows.map(x=>[x.name,x.attending?'Attending':'Declined',x.guests,x.meal,x.hotel,x.email,x.phone,x.song,x.notes,x.submittedAt])].map(r=>r.map(v=>'"'+String(v||'').replaceAll('"','""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='sharima-60th-rsvps.csv';a.click()};
+function getLocal(){
+  try{return JSON.parse(localStorage.getItem('sharima60_rsvps')||'[]')}catch(e){return []}
+}
+function setLocal(a){
+  try{localStorage.setItem('sharima60_rsvps',JSON.stringify(a))}catch(e){}
+}
+
+async function supabaseRequest(path,{method='GET',body,prefer}={}){
+  const response=await fetch(`${SUPABASE_URL}${path}`,{
+    method,
+    headers:{
+      apikey:SUPABASE_KEY,
+      Authorization:`Bearer ${SUPABASE_KEY}`,
+      'Content-Type':'application/json',
+      ...(prefer?{Prefer:prefer}:{})
+    },
+    ...(body!==undefined?{body:JSON.stringify(body)}:{})
+  });
+
+  if(!response.ok){
+    let detail='';
+    try{
+      const payload=await response.json();
+      detail=payload.message||payload.error_description||payload.hint||JSON.stringify(payload);
+    }catch(e){
+      detail=await response.text();
+    }
+    throw new Error(detail||`Supabase request failed (${response.status}).`);
+  }
+
+  if(response.status===204)return null;
+  const text=await response.text();
+  return text?JSON.parse(text):null;
+}
+
+async function saveEntry(entry){
+  const databaseEntry={
+    name:entry.name,
+    email:entry.email,
+    phone:entry.phone||null,
+    attending:Boolean(entry.attending),
+    guests:Number(entry.guests||0),
+    meal:entry.meal||null,
+    hotel:entry.hotel||null,
+    song:entry.song||null,
+    notes:entry.notes||null
+  };
+
+  await supabaseRequest('/rest/v1/rsvps',{
+    method:'POST',
+    body:databaseEntry,
+    prefer:'return=minimal'
+  });
+
+  const local=getLocal();
+  local.push(entry);
+  setLocal(local);
+}
+
+async function refreshCounts(){
+  try{
+    const summary=await supabaseRequest('/rest/v1/rpc/get_rsvp_summary',{
+      method:'POST',
+      body:{}
+    });
+    const row=Array.isArray(summary)?summary[0]:summary;
+    document.getElementById('confirmed').textContent=Number(row?.confirmed||0);
+    document.getElementById('declined').textContent=Number(row?.declined||0);
+    document.getElementById('guestTotal').textContent=Number(row?.guest_total||0);
+    document.getElementById('hotelTotal').textContent=Number(row?.hotel_total||0);
+  }catch(error){
+    const local=getLocal();
+    document.getElementById('confirmed').textContent=local.filter(x=>x.attending).length;
+    document.getElementById('declined').textContent=local.filter(x=>!x.attending).length;
+    document.getElementById('guestTotal').textContent=local.filter(x=>x.attending).reduce((s,x)=>s+Number(x.guests||0),0);
+    document.getElementById('hotelTotal').textContent=local.filter(x=>x.attending&&x.hotel==='Yes').length;
+    console.warn('Live counts unavailable:',error);
+  }
+}
+refreshCounts();
+
+document.getElementById('rsvpForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const submit=form.querySelector('button[type="submit"]');
+  const value=id=>document.getElementById(id).value;
+  const entry={
+    name:value('name').trim(),
+    email:value('email').trim(),
+    phone:value('phone').trim(),
+    attending,
+    guests:attending?value('guests'):'0',
+    meal:attending?value('meal'):'',
+    hotel:attending?value('hotelNeeded'):'',
+    song:attending?value('song').trim():'',
+    notes:value('notes').trim(),
+    submittedAt:new Date().toISOString()
+  };
+  const notice=document.getElementById('notice');
+
+  submit.disabled=true;
+  submit.textContent='Submitting...';
+  notice.classList.remove('show');
+
+  try{
+    await saveEntry(entry);
+    notice.textContent=attending
+      ?`Thank you, ${entry.name}. Your RSVP has been received.`
+      :`Thank you for responding, ${entry.name}. Your response has been received.`;
+    notice.classList.add('show');
+    form.reset();
+    setMode(true);
+    await refreshCounts();
+  }catch(error){
+    console.error('Supabase RSVP error:',error);
+    notice.textContent=`Your response could not be saved. ${error.message||'Please try again.'}`;
+    notice.classList.add('show');
+  }finally{
+    submit.disabled=false;
+    submit.textContent='Submit RSVP';
+  }
+});
+
+document.getElementById('hostToggle').onclick=()=>document.getElementById('admin').classList.toggle('show');
+
+let rows=[];
+
+document.getElementById('unlock').onclick=async()=>{
+  const pass=document.getElementById('hostPass').value;
+  const dashboard=document.getElementById('dashboard');
+  const body=document.getElementById('adminRows');
+  const unlock=document.getElementById('unlock');
+
+  unlock.disabled=true;
+  unlock.textContent='Loading...';
+  dashboard.style.display='block';
+  body.innerHTML='<tr><td colspan="9">Loading responses...</td></tr>';
+
+  try{
+    rows=await supabaseRequest('/rest/v1/rpc/get_rsvps',{
+      method:'POST',
+      body:{host_password:pass}
+    });
+
+    body.innerHTML=rows.length?'':'<tr><td colspan="9">No responses yet.</td></tr>';
+    rows.forEach(x=>{
+      const tr=document.createElement('tr');
+      [
+        x.name,
+        x.attending?'Attending':'Declined',
+        x.guests,
+        x.meal,
+        x.hotel,
+        x.email,
+        x.phone,
+        x.song,
+        x.notes
+      ].forEach(v=>{
+        const td=document.createElement('td');
+        td.textContent=v??'';
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }catch(error){
+    dashboard.style.display='none';
+    body.innerHTML='';
+    alert(error.message?.toLowerCase().includes('password')
+      ?'Incorrect password.'
+      :`Could not load responses: ${error.message}`);
+  }finally{
+    unlock.disabled=false;
+    unlock.textContent='Open Dashboard';
+  }
+};
+
+document.getElementById('exportCsv').onclick=()=>{
+  if(!rows.length)return alert('There are no responses to export.');
+  const headers=['Name','Status','Guests','Meal','Hotel','Email','Phone','Song','Notes','Created At'];
+  const values=rows.map(x=>[
+    x.name,
+    x.attending?'Attending':'Declined',
+    x.guests,
+    x.meal,
+    x.hotel,
+    x.email,
+    x.phone,
+    x.song,
+    x.notes,
+    x.created_at
+  ]);
+  const csv=[headers,...values]
+    .map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','))
+    .join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='sharima-60th-rsvps.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
 </script>
 </body>
 </html>
