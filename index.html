@@ -780,10 +780,10 @@ Reply STOP to opt out.</textarea>
 
 <div class="communication-footer">
 <span id="hotelRecipientCount">Open the dashboard to calculate recipients.</span>
-<button class="btn" id="sendHotelReminder" type="button" disabled title="Available after Twilio A2P approval and secure Edge Function setup">Send Hotel Reminder</button>
+<button class="btn" id="sendHotelReminder" type="button">Send Hotel Reminder</button>
 </div>
 
-<p class="twilio-note">Twilio sending is intentionally disabled until A2P approval and the secure Supabase Edge Function are complete. No Twilio credentials are stored in this webpage.</p>
+<p class="twilio-note">Messages are sent securely through the Celebrate Sharima event notification system.</p>
 </section>
 
 <div class="table-wrap">
@@ -1231,7 +1231,8 @@ function hotelReminderRecipients(){
   return rows.filter(x =>
     x.attending &&
     String(x.hotel||'').toLowerCase()==='yes' &&
-    String(x.phone||'').trim()
+    String(x.phone||'').trim() &&
+    x.sms_consent===true
   );
 }
 
@@ -1291,10 +1292,87 @@ document.getElementById('copyHotelMessage').onclick=()=>{
   );
 };
 
-document.getElementById('sendHotelReminder').onclick=()=>{
-  alert(
-    'Twilio sending will activate after A2P approval and secure Edge Function setup.'
+document.getElementById('sendHotelReminder').onclick=async()=>{
+  const button=document.getElementById('sendHotelReminder');
+  const recipients=hotelReminderRecipients();
+  const message=document.getElementById('hotelReminderMessage').value.trim();
+  const hostPassword=document.getElementById('hostPass').value;
+
+  if(!recipients.length){
+    return alert('No eligible opted-in hotel reminder recipients were found.');
+  }
+
+  if(!message){
+    return alert('Please enter a hotel reminder message.');
+  }
+
+  const confirmed=window.confirm(
+    `Send this hotel reminder to ${recipients.length} opted-in recipient${recipients.length===1?'':'s'}?\n\n` +
+    'This will send real SMS messages.'
   );
+
+  if(!confirmed)return;
+
+  button.disabled=true;
+  button.textContent='Sending...';
+
+  let sent=0;
+  const failed=[];
+
+  try{
+    for(const recipient of recipients){
+      const digits=String(recipient.phone||'').replace(/\D/g,'');
+      let phone='';
+
+      if(digits.length===10){
+        phone=`+1${digits}`;
+      }else if(digits.length===11 && digits.startsWith('1')){
+        phone=`+${digits}`;
+      }else{
+        failed.push({name:recipient.name||'Unknown guest',error:'Invalid phone number'});
+        continue;
+      }
+
+      try{
+        const response=await fetch(`${SUPABASE_URL}/functions/v1/send-event-sms`,{
+          method:'POST',
+          headers:{
+            apikey:SUPABASE_KEY,
+            Authorization:`Bearer ${SUPABASE_KEY}`,
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({to:phone,body:message,host_password:hostPassword})
+        });
+
+        let result={};
+        try{result=await response.json()}catch(error){}
+
+        if(!response.ok || !result.success){
+          throw new Error(result.message||result.error||`Request failed (${response.status})`);
+        }
+
+        sent++;
+      }catch(error){
+        console.error(`SMS failed for ${recipient.name||phone}:`,error);
+        failed.push({name:recipient.name||phone,error:error.message||'Unknown error'});
+      }
+    }
+
+    if(!failed.length){
+      alert(`Hotel reminder sent successfully to ${sent} recipient${sent===1?'':'s'}.`);
+    }else{
+      alert(
+        `Sending complete.\n\n` +
+        `Sent: ${sent}\n` +
+        `Failed: ${failed.length}\n\n` +
+        `Failed recipient${failed.length===1?'':'s'}:\n` +
+        failed.map(item=>`${item.name}: ${item.error}`).join('\n')
+      );
+    }
+  }finally{
+    button.disabled=false;
+    button.textContent='Send Hotel Reminder';
+  }
 };
 
 document.getElementById('exportCsv').onclick=()=>{
