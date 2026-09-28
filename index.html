@@ -382,7 +382,7 @@ body{min-height:100%;background-attachment:fixed}
     </div>
     <div style="position:relative;display:inline-block"><div class="intro-name">Sharima</div><span class="intro-name-glitter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
     <div class="intro-subtitle">60<sup>th</sup> Birthday Gala</div>
-    <div class="intro-date">October 3, 2026 · 6:00 PM · Black Tie</div>
+    <div class="intro-date">October 3, 2026 · 7:00 PM · Black Tie</div>
     <div class="intro-enter"><a class="btn" id="introEnter" href="#home" aria-label="Enter Sharima’s invitation" onclick="var x=document.getElementById('introScreen');if(x){x.style.display='none'}document.documentElement.style.overflow='auto';document.body.style.overflow='auto';">Enter Invitation</a></div>
   </div>
 </div>
@@ -455,7 +455,7 @@ body{min-height:100%;background-attachment:fixed}
 
 <div class="hero-meta">
 <div class="meta"><b>Saturday</b><span>October 3, 2026</span></div>
-<div class="meta"><b>6:00 PM</b><span>Evening Celebration</span></div>
+<div class="meta"><b>7:00 PM</b><span>Evening Celebration</span></div>
 <div class="meta"><b>Black Tie</b><span>Formal Attire</span></div>
 </div>
 
@@ -521,7 +521,7 @@ body{min-height:100%;background-attachment:fixed}
 
 <div class="glass location-card reveal">
 <div class="location-copy">
-<div class="eyebrow">Saturday · October 3, 2026 · 6:00 PM</div>
+<div class="eyebrow">Saturday · October 3, 2026 · 7:00 PM</div>
 <h3>Studio House Atlanta</h3>
 <address>
 75 John Wesley Dobbs Ave NE<br>
@@ -544,7 +544,7 @@ Atlanta, GA 30303
 <div class="section-head reveal">
 <div class="eyebrow">Travel & Hotel</div>
 <h2>Make a Weekend of It</h2>
-<p>A discounted Marriott room block is available for guests traveling to Atlanta. Each guest is responsible for reserving and paying for their own room. Rooms are limited, so early booking is strongly recommended.</p>
+<p>Marriott accommodations are available for guests traveling to Atlanta. Each guest is responsible for reserving and paying for their own room. Rooms are limited, so early booking is strongly recommended.</p>
 </div>
 
 <div class="hotel-card glass reveal">
@@ -568,8 +568,8 @@ Atlanta, GA 30303
 </div>
 
 <div class="timeline-grid">
-<div class="glass time-card reveal"><time>6:00 PM</time><h3>Cocktails & Arrivals</h3></div>
-<div class="glass time-card reveal"><time>7:00 PM</time><h3>Dinner & Celebration</h3></div>
+<div class="glass time-card reveal"><time>7:00 PM</time><h3>Arrivals & Cocktails</h3></div>
+<div class="glass time-card reveal"><time>Following Arrivals</time><h3>Dinner & Celebration</h3></div>
 <div class="glass time-card reveal"><time>8:00 PM</time><h3>Toasts & Tributes</h3></div>
 <div class="glass time-card reveal"><time>8:30 PM</time><h3>Dancing Begins</h3></div>
 <div class="glass time-card reveal"><time>11:00 PM</time><h3>Farewell</h3></div>
@@ -772,7 +772,7 @@ Atlanta, GA 30303
 <p>This targets attending guests who selected that they plan to use the hotel block and supplied a phone number.</p>
 </div>
 
-<textarea id="hotelReminderMessage" aria-label="Hotel reminder message">Thank you so much for confirming that you’ll be attending Sharima’s 60th Birthday Gala! As a friendly reminder, guests are responsible for reserving and paying for their own hotel rooms. Please use the official booking link below to receive the discounted group rate. Rooms are limited, so we recommend booking in advance if possible.
+<textarea id="hotelReminderMessage" aria-label="Hotel reminder message">Thank you so much for confirming that you’ll be attending Sharima’s 60th Birthday Gala! As a friendly reminder, guests are responsible for reserving and paying for their own hotel rooms. Please use the official Marriott booking link below. Rooms are limited, so we recommend booking in advance if possible.
 
 https://www.marriott.com/event-reservations/reservation-link.mi?id=1783722474105&key=GRP&app=resvlink&_p=c11629c79d1c65f1ea038ff4ec
 
@@ -888,7 +888,7 @@ function updateCountdown(){
   const els=ids.map(id=>document.getElementById(id));
   if(els.some(el=>!el))return;
 
-  const target=new Date('2026-10-03T18:00:00-04:00').getTime();
+  const target=new Date('2026-10-03T19:00:00-04:00').getTime();
   const v=Math.max(target-Date.now(),0);
 
   els[0].textContent=Math.floor(v/86400000);
